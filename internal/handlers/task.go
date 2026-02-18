@@ -1,25 +1,33 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
+
 	"tasks_assignment/internal/models"
+	"tasks_assignment/internal/usecase"
 )
 
-type TaskStore struct {
-	tasks  map[int]models.Task
-	nextID int
+type TaskHandler struct {
+	usecase TaskUsecase
 }
 
-func NewTaskStore() *TaskStore {
-	return &TaskStore{
-		tasks:  make(map[int]models.Task),
-		nextID: 1,
-	}
+type TaskUsecase interface {
+	GetTasks(ctx context.Context, done *bool) ([]models.Task, error)
+	GetTaskByID(ctx context.Context, id int) (*models.Task, error)
+	CreateTask(ctx context.Context, title string) (*models.Task, error)
+	UpdateTaskDone(ctx context.Context, id int, done bool) error
+	DeleteTask(ctx context.Context, id int) error
 }
 
-func (ts *TaskStore) GetTasks(w http.ResponseWriter, r *http.Request) {
+func NewTaskHandler(uc TaskUsecase) *TaskHandler {
+	return &TaskHandler{usecase: uc}
+}
+
+func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	idParam := r.URL.Query().Get("id")
@@ -33,11 +41,15 @@ func (ts *TaskStore) GetTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		task, exists := ts.tasks[id]
-
-		if !exists {
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "task not found"})
+		task, err := h.usecase.GetTaskByID(r.Context(), id)
+		if err != nil {
+			if errors.Is(err, usecase.ErrTaskNotFound) {
+				w.WriteHeader(http.StatusNotFound)
+				json.NewEncoder(w).Encode(models.ErrorResponse{Error: "task not found"})
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "internal error"})
 			return
 		}
 
@@ -46,23 +58,29 @@ func (ts *TaskStore) GetTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tasksList := make([]models.Task, 0, len(ts.tasks))
-	for _, task := range ts.tasks {
-		if doneParam != "" {
-			doneFilter, err := strconv.ParseBool(doneParam)
-			if err == nil && task.Done == doneFilter {
-				tasksList = append(tasksList, task)
-			}
-		} else {
-			tasksList = append(tasksList, task)
+	var doneFilter *bool
+	if doneParam != "" {
+		parsed, err := strconv.ParseBool(doneParam)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "invalid done value"})
+			return
 		}
+		doneFilter = &parsed
+	}
+
+	tasks, err := h.usecase.GetTasks(r.Context(), doneFilter)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(models.ErrorResponse{Error: "internal error"})
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(tasksList)
+	json.NewEncoder(w).Encode(tasks)
 }
 
-func (ts *TaskStore) CreateTask(w http.ResponseWriter, r *http.Request) {
+func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var req models.CreateTaskRequest
@@ -72,25 +90,23 @@ func (ts *TaskStore) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Title == "" || len(req.Title) > 100 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(models.ErrorResponse{Error: "invalid title"})
+	task, err := h.usecase.CreateTask(r.Context(), req.Title)
+	if err != nil {
+		if errors.Is(err, usecase.ErrInvalidTitle) {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "invalid title"})
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(models.ErrorResponse{Error: "internal error"})
 		return
 	}
-
-	task := models.Task{
-		ID:    ts.nextID,
-		Title: req.Title,
-		Done:  false,
-	}
-	ts.tasks[ts.nextID] = task
-	ts.nextID++
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(task)
 }
 
-func (ts *TaskStore) UpdateTask(w http.ResponseWriter, r *http.Request) {
+func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	idParam := r.URL.Query().Get("id")
@@ -114,21 +130,22 @@ func (ts *TaskStore) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, exists := ts.tasks[id]
-	if !exists {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(models.ErrorResponse{Error: "task not found"})
+	if err := h.usecase.UpdateTaskDone(r.Context(), id, req.Done); err != nil {
+		if errors.Is(err, usecase.ErrTaskNotFound) {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "task not found"})
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(models.ErrorResponse{Error: "internal error"})
 		return
 	}
-
-	task.Done = req.Done
-	ts.tasks[id] = task
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(models.SuccessResponse{Updated: true})
 }
 
-func (ts *TaskStore) DeleteTask(w http.ResponseWriter, r *http.Request) {
+func (h *TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	idParam := r.URL.Query().Get("id")
@@ -145,20 +162,22 @@ func (ts *TaskStore) DeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, exists := ts.tasks[id]
-	if !exists {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(models.ErrorResponse{Error: "task not found"})
+	if err := h.usecase.DeleteTask(r.Context(), id); err != nil {
+		if errors.Is(err, usecase.ErrTaskNotFound) {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "task not found"})
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(models.ErrorResponse{Error: "internal error"})
 		return
 	}
-
-	delete(ts.tasks, id)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]bool{"deleted": true})
 }
 
-func (ts *TaskStore) FetchExternalTasks(w http.ResponseWriter, r *http.Request) {
+func (h *TaskHandler) FetchExternalTasks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	resp, err := http.Get("https://jsonplaceholder.typicode.com/todos")
