@@ -1,15 +1,18 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:15-alpine
     container_name: tasks_db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: go_kbtu
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - private_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d go_kbtu"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -18,20 +21,27 @@ services:
     build: .
     container_name: tasks_app
     environment:
-      APP_PORT: "8080"
-      API_KEY: "secret12345"
+      APP_PORT: ${APP_PORT}
+      API_KEY: ${API_KEY}
       DB_HOST: "db"
       DB_PORT: "5432"
-      DB_USER: "postgres"
-      DB_PASSWORD: "postgres"
-      DB_NAME: "go_kbtu"
-      DB_SSLMODE: "disable"
-      DB_EXEC_TIMEOUT_SEC: "5"
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_SSLMODE: ${DB_SSLMODE}
+      DB_EXEC_TIMEOUT_SEC: ${DB_EXEC_TIMEOUT_SEC}
     ports:
       - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - private_net
 
 volumes:
   pgdata:
+
+networks:
+  private_net:
+    name: tasks_private_net
+    driver: bridge

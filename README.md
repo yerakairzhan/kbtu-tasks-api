@@ -1,31 +1,40 @@
-# Tasks Assignment API (Go + PostgreSQL)
+# Practice 4 — Tasks API (Go, PostgreSQL, Docker)
 
-A layered REST API for managing tasks using Go, PostgreSQL, and SQL migrations.
+This project is a Go REST API for tasks with PostgreSQL, Docker Compose orchestration, Swagger, and CI for unit tests.
 
-## What Was Done
+## What was completed
 
-### Core requirements implemented
-- HTTP server on `:8080`
-- JSON-only responses
-- Correct status codes and `Content-Type: application/json`
-- API key middleware (`X-API-KEY`)
-- Logging middleware (timestamp + method + endpoint)
+### Core backend
+- Layered architecture: `Handler -> Usecase -> Repository`
+- PostgreSQL integration via `sqlx`
+- Auto migrations on startup
+- CRUD endpoints for tasks
+- Middleware:
+  - API key auth (`X-API-KEY`)
+  - request logging
 - Healthcheck endpoint (`GET /healthz`)
-- PostgreSQL connection and auto-migrations on startup
-- CRUD for tasks with real DB repository
-- Layered architecture:
-  - Handler -> Usecase -> Repository
 
-### Additional work implemented
-- `.env`-based configuration loading
-- Swagger/OpenAPI documentation endpoint
-- Unit tests with mocks (handler and usecase layers)
-- Dockerization:
-  - `Dockerfile`
-  - `docker-compose.yml` (app + postgres)
+### Additional implementation
+- `.env` configuration loading (`godotenv`)
+- Swagger docs:
+  - `GET /swagger`
+  - `GET /swagger.yaml`
+- Unit tests with mocks for handler/usecase
 - GitHub Actions CI for unit tests
+- Dockerization:
+  - multi-stage `Dockerfile`
+  - `docker-compose.yml` with `app + db`
 
-## Project Structure
+## Practice 4 criteria mapping
+
+- Multi-stage build: implemented (`Dockerfile`)
+- Compose orchestration: implemented (`docker-compose.yml`)
+- Healthchecks + depends_on: implemented (`db` healthcheck + `service_healthy`)
+- Named volume persistence: implemented (`pgdata`)
+- No hardcoded DB credentials in compose: implemented via `${DB_USER}`, `${DB_PASSWORD}`, `${DB_NAME}`
+- DB schema initialization from compose: implemented via `docker/init.sql` mapped to `/docker-entrypoint-initdb.d/init.sql`
+
+## Project structure
 
 ```text
 cmd/api/main.go
@@ -37,36 +46,21 @@ internal/usecase/task_test.go
 internal/repository/repository.go
 internal/repository/_postgres/postgres.go
 internal/repository/_postgres/tasks/tasks.go
+internal/middleware/auth.go
+internal/models/task.go
+pkg/modules/configs.go
 database/migrations/000001_init.down.sql
 database/migrations/000002_init.up.sql
-pkg/modules/configs.go
+docker/init.sql
 docs/swagger.yaml
 .github/workflows/unit-tests.yml
 Dockerfile
 docker-compose.yml
 ```
 
-## API Endpoints
+## Environment config
 
-- `GET /healthz`
-- `GET /v1/tasks`
-- `GET /v1/tasks?id={id}`
-- `POST /v1/tasks`
-- `PATCH /v1/tasks?id={id}`
-- `DELETE /v1/tasks?id={id}`
-- `GET /v1/external-tasks`
-- `GET /swagger`
-- `GET /swagger.yaml`
-
-All protected endpoints require:
-
-```http
-X-API-KEY: secret12345
-```
-
-## Configuration (`.env`)
-
-Copy `.env.example` values into `.env` (already prepared in this project):
+Use `.env` (or copy from `.env.example`):
 
 ```env
 APP_PORT=8080
@@ -80,73 +74,87 @@ DB_SSLMODE=disable
 DB_EXEC_TIMEOUT_SEC=5
 ```
 
-## Run Locally
+## Run locally (without compose)
 
-### 1) Start PostgreSQL (existing local container)
+1. Start local DB container:
 
 ```bash
 docker start db_kbtu
 ```
 
-### 2) Run app
+2. Run API:
 
 ```bash
 go run ./cmd/api
 ```
 
-## Run With Docker Compose
+## Run with Docker Compose
 
 ```bash
 docker compose up -d --build
 ```
 
-Then test:
+Check containers:
 
 ```bash
-curl -i -H "X-API-KEY: secret12345" http://localhost:8080/healthz
+docker ps -a
 ```
 
-## Swagger
+Check DB tables:
 
-- UI: [http://localhost:8080/swagger](http://localhost:8080/swagger)
-- OpenAPI YAML: [http://localhost:8080/swagger.yaml](http://localhost:8080/swagger.yaml)
+```bash
+docker compose exec db psql -U postgres -d go_kbtu -c "\dt"
+```
 
-## Testing
+## API endpoints
 
-### Unit tests
+- Public:
+  - `GET /healthz`
+  - `GET /swagger`
+  - `GET /swagger.yaml`
+- Protected (`X-API-KEY` required):
+  - `GET /v1/tasks`
+  - `GET /v1/tasks?id={id}`
+  - `POST /v1/tasks`
+  - `PATCH /v1/tasks?id={id}`
+  - `DELETE /v1/tasks?id={id}`
+  - `GET /v1/external-tasks`
+
+## Quick test curls
+
+```bash
+curl -i http://localhost:8080/healthz
+curl -i http://localhost:8080/swagger
+curl -i -H "X-API-KEY: secret12345" http://localhost:8080/v1/tasks
+```
+
+## Unit tests
+
+Run all:
+
+```bash
+go test ./...
+```
+
+Focused unit tests:
 
 ```bash
 go test ./internal/handlers ./internal/usecase ./internal/middleware -v
 ```
 
-### Full local test run
+## CI
 
-```bash
-go test ./...
-go test ./internal/repository/_postgres -v
-```
+GitHub Actions workflow:
 
-## CI (GitHub Actions)
-
-Unit tests run automatically on:
-- every push
-- every pull request
-
-Workflow file:
 - `.github/workflows/unit-tests.yml`
 
-## Git Branch Fix (your issue)
+It runs unit tests on push and pull request.
 
-You started changes on `main` by mistake. This has been fixed by creating a dedicated branch:
-
-- `codex/practice3-tasks-final`
-
-Now push and open PR from this branch:
+## Docker image size check
 
 ```bash
-git add .
-git commit -m "Practice 3: tasks API, env config, swagger, tests, docker, CI"
-git push -u origin codex/practice3-tasks-final
+docker build -t tasks-api .
+docker images | grep tasks-api
 ```
 
-Then create a Pull Request into `main` on GitHub.
+(Practice 4 requires showing this in demo.)

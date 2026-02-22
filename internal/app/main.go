@@ -31,7 +31,10 @@ func Run() {
 	taskUsecase := usecase.NewTaskUsecase(repos.Tasks)
 	taskHandler := handlers.NewTaskHandler(taskUsecase)
 
-	http.HandleFunc("/v1/tasks", func(w http.ResponseWriter, r *http.Request) {
+	publicMux := http.NewServeMux()
+	privateMux := http.NewServeMux()
+
+	privateMux.HandleFunc("/v1/tasks", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			taskHandler.GetTasks(w, r)
@@ -47,7 +50,7 @@ func Run() {
 		}
 	})
 
-	http.HandleFunc("/v1/external-tasks", func(w http.ResponseWriter, r *http.Request) {
+	privateMux.HandleFunc("/v1/external-tasks", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			taskHandler.FetchExternalTasks(w, r)
 		} else {
@@ -56,7 +59,7 @@ func Run() {
 		}
 	})
 
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	publicMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -68,7 +71,7 @@ func Run() {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	http.HandleFunc("/swagger.yaml", func(w http.ResponseWriter, r *http.Request) {
+	publicMux.HandleFunc("/swagger.yaml", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
@@ -76,7 +79,7 @@ func Run() {
 		http.ServeFile(w, r, "docs/swagger.yaml")
 	})
 
-	http.HandleFunc("/swagger", func(w http.ResponseWriter, r *http.Request) {
+	publicMux.HandleFunc("/swagger", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
@@ -85,7 +88,15 @@ func Run() {
 		_, _ = w.Write([]byte(swaggerHTML))
 	})
 
-	handler := middleware.Logging(middleware.RequestID(middleware.APIKeyAuth(cfg.APIKey, http.DefaultServeMux)))
+	privateHandler := middleware.APIKeyAuth(cfg.APIKey, privateMux)
+	handler := middleware.Logging(middleware.RequestID(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/healthz", "/swagger", "/swagger.yaml":
+			publicMux.ServeHTTP(w, r)
+		default:
+			privateHandler.ServeHTTP(w, r)
+		}
+	})))
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
