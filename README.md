@@ -135,18 +135,3 @@ Unit tests run automatically on:
 Workflow file:
 - `.github/workflows/unit-tests.yml`
 
-## Git Branch Fix (your issue)
-
-You started changes on `main` by mistake. This has been fixed by creating a dedicated branch:
-
-- `codex/practice3-tasks-final`
-
-Now push and open PR from this branch:
-
-```bash
-git add .
-git commit -m "Practice 3: tasks API, env config, swagger, tests, docker, CI"
-git push -u origin codex/practice3-tasks-final
-```
-
-Then create a Pull Request into `main` on GitHub.
