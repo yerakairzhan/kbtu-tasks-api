@@ -27,15 +27,6 @@ This project is a Go REST API for tasks with PostgreSQL, Docker Compose orchestr
   - `docker-compose.yml` with `app + db`
 - Graceful shutdown on SIGINT/SIGTERM
 
-## Practice 4 criteria mapping
-
-- Multi-stage build: implemented (`Dockerfile`)
-- Compose orchestration: implemented (`docker-compose.yml`)
-- Healthchecks + depends_on: implemented (`db` healthcheck + `service_healthy`)
-- Named volume persistence: implemented (`pgdata`)
-- No hardcoded DB credentials in compose: implemented via `${DB_USER}`, `${DB_PASSWORD}`, `${DB_NAME}`
-- DB schema initialization from compose: implemented via `docker/init.sql` mapped to `/docker-entrypoint-initdb.d/init.sql`
-
 ## Project structure
 
 ```text
@@ -59,22 +50,6 @@ docs/swagger.yaml
 .github/workflows/unit-tests.yml
 Dockerfile
 docker-compose.yml
-```
-
-## Environment config
-
-Use `.env` (or copy from `.env.example`):
-
-```env
-APP_PORT=8080
-API_KEY=secret12345
-DB_HOST=localhost
-DB_PORT=5434
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_NAME=go_kbtu
-DB_SSLMODE=disable
-DB_EXEC_TIMEOUT=5s
 ```
 
 Main application config file:
@@ -175,11 +150,4 @@ GitHub Actions workflow:
 
 It runs unit tests on push and pull request.
 
-## Docker image size check
 
-```bash
-docker build -t tasks-api .
-docker images | grep tasks-api
-```
-
-(Practice 4 requires showing this in demo.)
