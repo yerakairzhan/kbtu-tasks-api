@@ -15,15 +15,17 @@ This project is a Go REST API for tasks with PostgreSQL, Docker Compose orchestr
 - Healthcheck endpoint (`GET /healthz`)
 
 ### Additional implementation
-- `.env` configuration loading (`godotenv`)
+- `config.yml` parsing via `cleanenv` (with env override support)
 - Swagger docs:
   - `GET /swagger`
   - `GET /swagger.yaml`
 - Unit tests with mocks for handler/usecase
 - GitHub Actions CI for unit tests
+- Makefile shortcuts (`make test`, `make docker-up`, etc.)
 - Dockerization:
   - multi-stage `Dockerfile`
   - `docker-compose.yml` with `app + db`
+- Graceful shutdown on SIGINT/SIGTERM
 
 ## Practice 4 criteria mapping
 
@@ -49,6 +51,7 @@ internal/repository/_postgres/tasks/tasks.go
 internal/middleware/auth.go
 internal/models/task.go
 pkg/modules/configs.go
+config.yml
 database/migrations/000001_init.down.sql
 database/migrations/000002_init.up.sql
 docker/init.sql
@@ -71,7 +74,23 @@ DB_USER=postgres
 DB_PASSWORD=postgres
 DB_NAME=go_kbtu
 DB_SSLMODE=disable
-DB_EXEC_TIMEOUT_SEC=5
+DB_EXEC_TIMEOUT=5s
+```
+
+Main application config file:
+
+```yaml
+# config.yml
+app_port: "8080"
+api_key: "secret12345"
+db:
+  host: "localhost"
+  port: "5434"
+  username: "postgres"
+  password: "postgres"
+  db_name: "go_kbtu"
+  ssl_mode: "disable"
+  exec_timeout: "5s"
 ```
 
 ## Run locally (without compose)
@@ -92,6 +111,12 @@ go run ./cmd/api
 
 ```bash
 docker compose up -d --build
+```
+
+Or with Makefile:
+
+```bash
+make docker-up
 ```
 
 Check containers:

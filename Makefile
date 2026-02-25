@@ -1,4 +1,4 @@
-.PHONY: help run test unit docker-up docker-down docker-restart logs ps
+.PHONY: help run test unit docker-up docker-down docker-restart logs ps db
 
 
 run:
@@ -17,8 +17,11 @@ docker-restart:
 	docker compose down
 	docker compose up -d --build
 
+db:
+	docker compose exec db psql -U postgres -d go_kbtu
+
 logs:
 	docker compose logs -f
 
 ps:
-	docker compose ps
+	docker ps -a

@@ -11,6 +11,7 @@ RUN adduser -D -h /app appuser
 COPY --from=builder /out/app /app/app
 COPY database /app/database
 COPY docs /app/docs
+COPY config.yml /app/config.yml
 COPY .env.example /app/.env.example
 USER appuser
 EXPOSE 8080

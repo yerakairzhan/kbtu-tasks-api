@@ -1,65 +1,32 @@
 package modules
 
 import (
-	"os"
-	"strconv"
+	"fmt"
 	"time"
 
-	"github.com/joho/godotenv"
+	"github.com/ilyakaznacheev/cleanenv"
 )
 
 type PostgreConfig struct {
-	Host        string
-	Port        string
-	Username    string
-	Password    string
-	DBName      string
-	SSLMode     string
-	ExecTimeout time.Duration
+	Host        string        `yaml:"host" env:"DB_HOST" env-default:"localhost"`
+	Port        string        `yaml:"port" env:"DB_PORT" env-default:"5434"`
+	Username    string        `yaml:"username" env:"DB_USER" env-default:"postgres"`
+	Password    string        `yaml:"password" env:"DB_PASSWORD" env-default:"postgres"`
+	DBName      string        `yaml:"db_name" env:"DB_NAME" env-default:"go_kbtu"`
+	SSLMode     string        `yaml:"ssl_mode" env:"DB_SSLMODE" env-default:"disable"`
+	ExecTimeout time.Duration `yaml:"exec_timeout" env:"DB_EXEC_TIMEOUT" env-default:"5s"`
 }
 
 type AppConfig struct {
-	Port   string
-	APIKey string
-	PG     *PostgreConfig
+	Port   string        `yaml:"app_port" env:"APP_PORT" env-default:"8080"`
+	APIKey string        `yaml:"api_key" env:"API_KEY" env-default:"secret12345"`
+	PG     PostgreConfig `yaml:"db"`
 }
 
-func LoadConfig() *AppConfig {
-	_ = godotenv.Load()
-
-	timeoutSec := getIntEnv("DB_EXEC_TIMEOUT_SEC", 5)
-
-	return &AppConfig{
-		Port:   getEnv("APP_PORT", "8080"),
-		APIKey: getEnv("API_KEY", "secret12345"),
-		PG: &PostgreConfig{
-			Host:        getEnv("DB_HOST", "localhost"),
-			Port:        getEnv("DB_PORT", "5434"),
-			Username:    getEnv("DB_USER", "postgres"),
-			Password:    getEnv("DB_PASSWORD", "postgres"),
-			DBName:      getEnv("DB_NAME", "go_kbtu"),
-			SSLMode:     getEnv("DB_SSLMODE", "disable"),
-			ExecTimeout: time.Duration(timeoutSec) * time.Second,
-		},
+func LoadConfig(path string) (*AppConfig, error) {
+	var cfg AppConfig
+	if err := cleanenv.ReadConfig(path, &cfg); err != nil {
+		return nil, fmt.Errorf("read config %s: %w", path, err)
 	}
-}
-
-func getEnv(key, fallback string) string {
-	v := os.Getenv(key)
-	if v == "" {
-		return fallback
-	}
-	return v
-}
-
-func getIntEnv(key string, fallback int) int {
-	v := os.Getenv(key)
-	if v == "" {
-		return fallback
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil {
-		return fallback
-	}
-	return n
+	return &cfg, nil
 }

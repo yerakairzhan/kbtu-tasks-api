@@ -29,7 +29,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
       DB_SSLMODE: ${DB_SSLMODE}
-      DB_EXEC_TIMEOUT_SEC: ${DB_EXEC_TIMEOUT_SEC}
+      DB_EXEC_TIMEOUT: ${DB_EXEC_TIMEOUT}
     ports:
       - "8080:8080"
     depends_on:

@@ -2,8 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,6 +9,7 @@ import (
 	"time"
 
 	"tasks_assignment/internal/handlers"
+	"tasks_assignment/internal/logger"
 	"tasks_assignment/internal/middleware"
 	"tasks_assignment/internal/repository"
 	"tasks_assignment/internal/repository/_postgres"
@@ -22,10 +21,14 @@ func Run() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg := modules.LoadConfig()
-	postgre := _postgres.NewPGXDialect(ctx, cfg.PG)
+	cfg, err := modules.LoadConfig("config.yml")
+	if err != nil {
+		logger.Fatalf("load config: %v", err)
+	}
+
+	postgre := _postgres.NewPGXDialect(ctx, &cfg.PG)
 	defer postgre.DB.Close()
-	fmt.Println(postgre)
+	logger.Infof("database connection initialized")
 
 	repos := repository.NewRepositories(postgre)
 	taskUsecase := usecase.NewTaskUsecase(repos.Tasks)
@@ -104,9 +107,9 @@ func Run() {
 	}
 
 	go func() {
-		log.Printf("Server starting on :%s", cfg.Port)
+		logger.Infof("server starting on :%s", cfg.Port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server failed: %v", err)
+			logger.Fatalf("server failed: %v", err)
 		}
 	}()
 
@@ -114,16 +117,16 @@ func Run() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	logger.Infof("shutting down server...")
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("Server shutdown failed: %v", err)
+		logger.Fatalf("server shutdown failed: %v", err)
 	}
 
-	log.Println("Server stopped")
+	logger.Infof("server stopped")
 }
 
 const swaggerHTML = `<!doctype html>
