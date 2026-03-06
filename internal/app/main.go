@@ -32,7 +32,9 @@ func Run() {
 
 	repos := repository.NewRepositories(postgre)
 	taskUsecase := usecase.NewTaskUsecase(repos.Tasks)
+	userUsecase := usecase.NewUserUsecase(repos.Users)
 	taskHandler := handlers.NewTaskHandler(taskUsecase)
+	userHandler := handlers.NewUserHandler(userUsecase)
 
 	publicMux := http.NewServeMux()
 	privateMux := http.NewServeMux()
@@ -57,6 +59,18 @@ func Run() {
 		if r.Method == http.MethodGet {
 			taskHandler.FetchExternalTasks(w, r)
 		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	})
+
+	privateMux.HandleFunc("/v1/users", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			userHandler.GetUsers(w, r)
+		case http.MethodPost:
+			userHandler.CreateUser(w, r)
+		default:
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}

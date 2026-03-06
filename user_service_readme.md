@@ -289,14 +289,14 @@ Service runs on:
 
 # Deliverables
 
-Category                           Points
+  Category                           Points
   ---------------------------------- --------------
-Project flow                       0.5
-Pagination + filtering + sorting   0.75
-Common friends function            0.75
-HTTP handlers                      0.5
-Demo video                         0.5
-**Total**                          **3 points**
+  Project flow                       0.5
+  Pagination + filtering + sorting   0.75
+  Common friends function            0.75
+  HTTP handlers                      0.5
+  Demo video                         0.5
+  **Total**                          **3 points**
 
 ------------------------------------------------------------------------
 
