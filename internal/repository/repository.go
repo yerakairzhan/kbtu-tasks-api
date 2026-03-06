@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"tasks_assignment/internal/models"
-	"tasks_assignment/internal/repository/_postgres"
-	tasksrepo "tasks_assignment/internal/repository/_postgres/tasks"
-	usersrepo "tasks_assignment/internal/repository/_postgres/users"
+	"tasks_assignment/internal/repository/postgres"
+	tasksrepo "tasks_assignment/internal/repository/postgres/tasks"
+	usersrepo "tasks_assignment/internal/repository/postgres/users"
 )
 
 type TaskRepository interface {
@@ -29,9 +29,9 @@ type UserRepository interface {
 	Create(ctx context.Context, name, email, gender string, birthDate time.Time) (*models.User, error)
 }
 
-func NewRepositories(postgres *_postgres.Dialect) *Repositories {
+func NewRepositories(pg *postgres.Dialect) *Repositories {
 	return &Repositories{
-		Tasks: tasksrepo.New(postgres.DB),
-		Users: usersrepo.New(postgres.DB),
+		Tasks: tasksrepo.New(pg.DB),
+		Users: usersrepo.New(pg.DB),
 	}
 }

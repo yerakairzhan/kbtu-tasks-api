@@ -1,9 +1,6 @@
 package models
 
-import (
-	"encoding/json"
-	"time"
-)
+import "time"
 
 type UUID string
 
@@ -12,11 +9,11 @@ func (id UUID) String() string {
 }
 
 type User struct {
-	ID         UUID      `json:"id"`
-	Name       string    `json:"name"`
-	Email      string    `json:"email"`
-	gender     string    `json:"gender"`
-	birth_date time.Time `json:"birth_date"`
+	ID        UUID      `json:"id" db:"id"`
+	Name      string    `json:"name" db:"name"`
+	Email     string    `json:"email" db:"email"`
+	Gender    string    `json:"gender" db:"gender"`
+	BirthDate time.Time `json:"birth_date" db:"birth_date"`
 }
 
 type CreateUserRequest struct {
@@ -26,71 +23,9 @@ type CreateUserRequest struct {
 	BirthDate time.Time `json:"birth_date"`
 }
 
-func NewUser(id UUID, name, email, gender string, birthDate time.Time) User {
-	return User{
-		ID:         id,
-		Name:       name,
-		Email:      email,
-		gender:     gender,
-		birth_date: birthDate,
-	}
-}
-
-func (u User) Gender() string {
-	return u.gender
-}
-
-func (u *User) SetGender(gender string) {
-	u.gender = gender
-}
-
-func (u User) BirthDate() time.Time {
-	return u.birth_date
-}
-
-func (u *User) SetBirthDate(birthDate time.Time) {
-	u.birth_date = birthDate
-}
-
-func (u User) MarshalJSON() ([]byte, error) {
-	type userJSON struct {
-		ID        UUID      `json:"id"`
-		Name      string    `json:"name"`
-		Email     string    `json:"email"`
-		Gender    string    `json:"gender"`
-		BirthDate time.Time `json:"birth_date"`
-	}
-
-	return json.Marshal(userJSON{
-		ID:        u.ID,
-		Name:      u.Name,
-		Email:     u.Email,
-		Gender:    u.gender,
-		BirthDate: u.birth_date,
-	})
-}
-
-func (u *User) UnmarshalJSON(data []byte) error {
-	type userJSON struct {
-		ID        UUID      `json:"id"`
-		Name      string    `json:"name"`
-		Email     string    `json:"email"`
-		Gender    string    `json:"gender"`
-		BirthDate time.Time `json:"birth_date"`
-	}
-
-	var parsed userJSON
-	if err := json.Unmarshal(data, &parsed); err != nil {
-		return err
-	}
-
-	u.ID = parsed.ID
-	u.Name = parsed.Name
-	u.Email = parsed.Email
-	u.gender = parsed.Gender
-	u.birth_date = parsed.BirthDate
-
-	return nil
+type ListUsersInput struct {
+	Page     int
+	PageSize int
 }
 
 type PaginatedResponse struct {

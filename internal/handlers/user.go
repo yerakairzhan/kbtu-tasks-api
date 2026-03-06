@@ -16,7 +16,7 @@ type UserHandler struct {
 }
 
 type UserUsecase interface {
-	GetUsers(ctx context.Context, page, pageSize int) (models.PaginatedResponse, error)
+	GetUsers(ctx context.Context, input models.ListUsersInput) (models.PaginatedResponse, error)
 	GetUserByID(ctx context.Context, id string) (*models.User, error)
 	CreateUser(ctx context.Context, req models.CreateUserRequest) (*models.User, error)
 }
@@ -28,84 +28,90 @@ func NewUserHandler(uc UserUsecase) *UserHandler {
 func (h *UserHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	id := r.URL.Query().Get("id")
-	if id != "" {
-		user, err := h.usecase.GetUserByID(r.Context(), id)
-		if err != nil {
-			switch {
-			case errors.Is(err, usecase.ErrInvalidUserInput):
-				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(models.ErrorResponse{Error: "invalid id"})
-			case errors.Is(err, usecase.ErrUserNotFound):
-				w.WriteHeader(http.StatusNotFound)
-				json.NewEncoder(w).Encode(models.ErrorResponse{Error: "user not found"})
-			default:
-				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(models.ErrorResponse{Error: "internal error"})
-			}
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(user)
+	if id := r.URL.Query().Get("id"); id != "" {
+		h.getUserByID(w, r, id)
 		return
 	}
 
-	page := 1
-	if raw := r.URL.Query().Get("page"); raw != "" {
-		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed < 1 {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "invalid page"})
-			return
-		}
-		page = parsed
-	}
-
-	pageSize := 10
-	if raw := r.URL.Query().Get("page_size"); raw != "" {
-		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed < 1 {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "invalid page_size"})
-			return
-		}
-		pageSize = parsed
-	}
-
-	resp, err := h.usecase.GetUsers(r.Context(), page, pageSize)
+	page, err := parsePositiveInt(r.URL.Query().Get("page"), "page", 1)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(models.ErrorResponse{Error: "internal error"})
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	pageSize, err := parsePositiveInt(r.URL.Query().Get("page_size"), "page_size", 10)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	resp, err := h.usecase.GetUsers(r.Context(), models.ListUsersInput{Page: page, PageSize: pageSize})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var req models.CreateUserRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(models.ErrorResponse{Error: "invalid request body"})
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	user, err := h.usecase.CreateUser(r.Context(), req)
 	if err != nil {
 		if errors.Is(err, usecase.ErrInvalidUserInput) {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "invalid user data"})
+			writeError(w, http.StatusBadRequest, "invalid user data")
 			return
 		}
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(models.ErrorResponse{Error: "internal error"})
+		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
+	_ = json.NewEncoder(w).Encode(user)
+}
+
+func (h *UserHandler) getUserByID(w http.ResponseWriter, r *http.Request, id string) {
+	user, err := h.usecase.GetUserByID(r.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, usecase.ErrInvalidUserInput):
+			writeError(w, http.StatusBadRequest, "invalid id")
+		case errors.Is(err, usecase.ErrUserNotFound):
+			writeError(w, http.StatusNotFound, "user not found")
+		default:
+			writeError(w, http.StatusInternalServerError, "internal error")
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(user)
+}
+
+func parsePositiveInt(raw, field string, fallback int) (int, error) {
+	if raw == "" {
+		return fallback, nil
+	}
+
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 1 {
+		return 0, errors.New("invalid " + field)
+	}
+
+	return value, nil
+}
+
+func writeError(w http.ResponseWriter, status int, message string) {
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(models.ErrorResponse{Error: message})
 }

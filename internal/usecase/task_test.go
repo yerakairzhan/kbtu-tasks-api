@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"tasks_assignment/internal/models"
-	tasksrepo "tasks_assignment/internal/repository/_postgres/tasks"
+	tasksrepo "tasks_assignment/internal/repository/postgres/tasks"
 )
 
 type mockTaskRepo struct {

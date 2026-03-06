@@ -1,8 +1,9 @@
-package _postgres
+package postgres
 
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -20,15 +21,18 @@ type Dialect struct {
 func NewPGXDialect(ctx context.Context, cfg *modules.PostgreConfig) *Dialect {
 	_ = ctx
 
-	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		cfg.Host,
-		cfg.Port,
-		cfg.Username,
-		cfg.Password,
-		cfg.DBName,
-		cfg.SSLMode,
-	)
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = fmt.Sprintf(
+			"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+			cfg.Host,
+			cfg.Port,
+			cfg.Username,
+			cfg.Password,
+			cfg.DBName,
+			cfg.SSLMode,
+		)
+	}
 
 	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {

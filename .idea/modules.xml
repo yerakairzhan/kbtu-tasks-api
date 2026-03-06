@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/tasks_assignment.iml" filepath="$PROJECT_DIR$/.idea/tasks_assignment.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/golang-practice-tasks.iml" filepath="$PROJECT_DIR$/.idea/golang-practice-tasks.iml" />
     </modules>
   </component>
 </project>

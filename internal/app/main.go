@@ -12,7 +12,7 @@ import (
 	"tasks_assignment/internal/logger"
 	"tasks_assignment/internal/middleware"
 	"tasks_assignment/internal/repository"
-	"tasks_assignment/internal/repository/_postgres"
+	"tasks_assignment/internal/repository/postgres"
 	"tasks_assignment/internal/usecase"
 	"tasks_assignment/pkg/modules"
 )
@@ -26,7 +26,7 @@ func Run() {
 		logger.Fatalf("load config: %v", err)
 	}
 
-	postgre := _postgres.NewPGXDialect(ctx, &cfg.PG)
+	postgre := postgres.NewPGXDialect(ctx, &cfg.PG)
 	defer postgre.DB.Close()
 	logger.Infof("database connection initialized")
 

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"tasks_assignment/internal/models"
-	tasksrepo "tasks_assignment/internal/repository/_postgres/tasks"
+	tasksrepo "tasks_assignment/internal/repository/postgres/tasks"
 )
 
 var ErrTaskNotFound = errors.New("task not found")
