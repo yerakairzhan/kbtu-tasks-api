@@ -2,6 +2,8 @@ services:
   db:
     image: postgres:15-alpine
     container_name: tasks_db
+    env_file:
+      - .env
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -10,7 +12,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
-      - "${DB_PORT:-5434}:5432"
+      - "${DB_PORT}:5432"
     networks:
       - private_net
     healthcheck:
@@ -22,6 +24,8 @@ services:
   app:
     build: .
     container_name: tasks_app
+    env_file:
+      - .env
     environment:
       APP_PORT: ${APP_PORT}
       API_KEY: ${API_KEY}
@@ -33,7 +37,7 @@ services:
       DB_SSLMODE: ${DB_SSLMODE}
       DB_EXEC_TIMEOUT: ${DB_EXEC_TIMEOUT}
     ports:
-      - "8080:8080"
+      - "${APP_PORT}:${APP_PORT}"
     depends_on:
       db:
         condition: service_healthy

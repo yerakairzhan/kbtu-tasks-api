@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"tasks_assignment/internal/models"
 	"tasks_assignment/internal/usecase"
@@ -19,6 +21,7 @@ type UserUsecase interface {
 	GetUsers(ctx context.Context, input models.ListUsersInput) (models.PaginatedResponse, error)
 	GetUserByID(ctx context.Context, id string) (*models.User, error)
 	CreateUser(ctx context.Context, req models.CreateUserRequest) (*models.User, error)
+	GetCommonFriends(ctx context.Context, user1, user2 string) ([]models.User, error)
 }
 
 func NewUserHandler(uc UserUsecase) *UserHandler {
@@ -45,7 +48,22 @@ func (h *UserHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.usecase.GetUsers(r.Context(), models.ListUsersInput{Page: page, PageSize: pageSize})
+	filters, err := buildUserFilters(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	orderBy := r.URL.Query().Get("order_by")
+
+	input := models.ListUsersInput{
+		Page:     page,
+		PageSize: pageSize,
+		OrderBy:  orderBy,
+		Filters:  filters,
+	}
+
+	resp, err := h.usecase.GetUsers(r.Context(), input)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
@@ -98,6 +116,25 @@ func (h *UserHandler) getUserByID(w http.ResponseWriter, r *http.Request, id str
 	_ = json.NewEncoder(w).Encode(user)
 }
 
+func (h *UserHandler) CommonFriends(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	user1 := strings.TrimSpace(r.URL.Query().Get("user1_id"))
+	user2 := strings.TrimSpace(r.URL.Query().Get("user2_id"))
+	friends, err := h.usecase.GetCommonFriends(r.Context(), user1, user2)
+	if err != nil {
+		if errors.Is(err, usecase.ErrInvalidUserInput) {
+			writeError(w, http.StatusBadRequest, "invalid user ids")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(friends)
+}
+
 func parsePositiveInt(raw, field string, fallback int) (int, error) {
 	if raw == "" {
 		return fallback, nil
@@ -114,4 +151,34 @@ func parsePositiveInt(raw, field string, fallback int) (int, error) {
 func writeError(w http.ResponseWriter, status int, message string) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(models.ErrorResponse{Error: message})
+}
+
+func buildUserFilters(r *http.Request) (models.UserFilters, error) {
+	q := r.URL.Query()
+	filters := models.UserFilters{
+		ID:     strings.TrimSpace(q.Get("filter_id")),
+		Name:   strings.TrimSpace(q.Get("name")),
+		Email:  strings.TrimSpace(q.Get("email")),
+		Gender: strings.TrimSpace(q.Get("gender")),
+	}
+
+	if birthDateRaw := strings.TrimSpace(q.Get("birth_date")); birthDateRaw != "" {
+		birthDate, err := parseBirthDate(birthDateRaw)
+		if err != nil {
+			return filters, err
+		}
+		filters.BirthDate = &birthDate
+	}
+
+	return filters, nil
+}
+
+func parseBirthDate(raw string) (time.Time, error) {
+	layouts := []string{time.RFC3339, "2006-01-02"}
+	for _, layout := range layouts {
+		if parsed, err := time.Parse(layout, raw); err == nil {
+			return parsed, nil
+		}
+	}
+	return time.Time{}, errors.New("invalid birth_date")
 }

@@ -24,9 +24,10 @@ type Repositories struct {
 }
 
 type UserRepository interface {
-	List(ctx context.Context, page, pageSize int) ([]models.User, int, error)
+	List(ctx context.Context, input models.ListUsersInput) ([]models.User, int, error)
 	GetByID(ctx context.Context, id models.UUID) (*models.User, error)
 	Create(ctx context.Context, name, email, gender string, birthDate time.Time) (*models.User, error)
+	GetCommonFriends(ctx context.Context, user1, user2 string) ([]models.User, error)
 }
 
 func NewRepositories(pg *postgres.Dialect) *Repositories {

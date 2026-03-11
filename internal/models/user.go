@@ -26,6 +26,16 @@ type CreateUserRequest struct {
 type ListUsersInput struct {
 	Page     int
 	PageSize int
+	OrderBy  string
+	Filters  UserFilters
+}
+
+type UserFilters struct {
+	ID        string
+	Name      string
+	Email     string
+	Gender    string
+	BirthDate *time.Time
 }
 
 type PaginatedResponse struct {

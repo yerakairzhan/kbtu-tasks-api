@@ -21,9 +21,10 @@ const (
 )
 
 type UserRepository interface {
-	List(ctx context.Context, page, pageSize int) ([]models.User, int, error)
+	List(ctx context.Context, input models.ListUsersInput) ([]models.User, int, error)
 	GetByID(ctx context.Context, id models.UUID) (*models.User, error)
 	Create(ctx context.Context, name, email, gender string, birthDate time.Time) (*models.User, error)
+	GetCommonFriends(ctx context.Context, user1, user2 string) ([]models.User, error)
 }
 
 type UserUsecase struct {
@@ -36,12 +37,23 @@ func NewUserUsecase(repo UserRepository) *UserUsecase {
 
 func (u *UserUsecase) GetUsers(ctx context.Context, input models.ListUsersInput) (models.PaginatedResponse, error) {
 	page, pageSize := normalizePagination(input.Page, input.PageSize)
+	input.Page = page
+	input.PageSize = pageSize
 
-	users, total, err := u.repo.List(ctx, page, pageSize)
+	users, total, err := u.repo.List(ctx, input)
 	if err != nil {
 		return models.PaginatedResponse{}, err
 	}
 	return models.NewPaginatedResponse(users, total, page, pageSize), nil
+}
+
+func (u *UserUsecase) GetCommonFriends(ctx context.Context, user1ID, user2ID string) ([]models.User, error) {
+	user1 := strings.TrimSpace(user1ID)
+	user2 := strings.TrimSpace(user2ID)
+	if user1 == "" || user2 == "" {
+		return nil, ErrInvalidUserInput
+	}
+	return u.repo.GetCommonFriends(ctx, user1, user2)
 }
 
 func (u *UserUsecase) GetUserByID(ctx context.Context, id string) (*models.User, error) {

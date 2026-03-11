@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
+
 	"tasks_assignment/internal/handlers"
 	"tasks_assignment/internal/logger"
 	"tasks_assignment/internal/middleware"
@@ -20,6 +22,8 @@ import (
 func Run() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	_ = godotenv.Load(".env")
 
 	cfg, err := modules.LoadConfig("config.yml")
 	if err != nil {
@@ -74,6 +78,15 @@ func Run() {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
+	})
+
+	privateMux.HandleFunc("/v1/users/common-friends", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		userHandler.CommonFriends(w, r)
 	})
 
 	publicMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
